@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Scientific Calculator - Stack 3: Go + REST API inspired UI.">
+  <title>Go REST API - Scientific Calculator</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --border: #111111;
+      --accent: #cc0000;
+      --accent-light: rgba(204, 0, 0, 0.08);
+      --text: #111111;
+      --text-muted: #666666;
+      --text-light: #999999;
+      --font: system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      --mono: "Courier New", Courier, monospace;
+      --json-bg: #1a1a1a;
+      --json-text: #e0e0e0;
+      --shadow: 0 24px 60px rgba(17, 17, 17, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(17, 17, 17, 0.035) 1px, transparent 1px),
+        linear-gradient(rgba(17, 17, 17, 0.035) 1px, transparent 1px),
+        var(--bg);
+      background-size: 28px 28px;
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 48px 20px 60px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1.5px solid var(--border);
+      box-shadow: var(--shadow), 8px 8px 0 rgba(204, 0, 0, 0.08);
+      padding: 24px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 3px solid var(--border);
+      padding-bottom: 14px;
+      margin-bottom: 24px;
+      gap: 12px;
+    }
+
+    .header-left h1 {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .header-left p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .stack-badge {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1.5px solid var(--accent);
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+
+    .display {
+      border: 1.5px solid var(--border);
+      padding: 14px;
+      text-align: right;
+      min-height: 98px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      margin-bottom: 12px;
+      background:
+        linear-gradient(180deg, rgba(204, 0, 0, 0.04), transparent),
+        #fff;
+      box-shadow: inset 0 0 0 4px rgba(17, 17, 17, 0.025);
+    }
+
+    .expression {
+      font-family: var(--mono);
+      color: var(--text-light);
+      font-size: 12px;
+      min-height: 18px;
+      overflow-wrap: anywhere;
+    }
+
+    .result {
+      font-size: 36px;
+      font-weight: 900;
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+      color: var(--text);
+      transition: color 0.15s ease;
+    }
+
+    .result.evaluated { color: var(--accent); }
+    .result.error { color: var(--accent); }
+
+    .mode-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin: -2px 0 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border-left: 1.5px solid var(--border);
+      border-top: 1.5px solid var(--border);
+    }
+
+    button {
+      min-height: 54px;
+      border: none;
+      border-right: 1.5px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s, box-shadow 0.1s;
+    }
+
+    button:hover { background: var(--accent-light); }
+    button:active { background: var(--accent); color: #fff; }
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -5px;
+    }
+    .op, .sci, .equals { color: var(--accent); }
+    .sci { background: rgba(204, 0, 0, 0.035); }
+    .op { background: rgba(17, 17, 17, 0.035); }
+    .equals { background: var(--accent); color: #fff; }
+    .equals:hover { background: #a80000; }
+
+    .json-panel {
+      margin-top: 24px;
+      border: 1.5px solid var(--border);
+      box-shadow: 4px 4px 0 rgba(17, 17, 17, 0.08);
+    }
+
+    .json-header {
+      background: var(--border);
+      color: #fff;
+      padding: 7px 14px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      font-family: var(--mono);
+    }
+
+    .http-method {
+      background: var(--accent);
+      padding: 1px 6px;
+      margin-right: 8px;
+      font-size: 9px;
+    }
+
+    .json-body {
+      background: var(--json-bg);
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--json-text);
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 420px) {
+      .header { flex-direction: column; align-items: flex-start; }
+      .keyboard { grid-template-columns: repeat(4, 1fr); }
+      .result { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <div class="header">
+      <div class="header-left">
+        <h1>Scientific Calculator</h1>
+        <p>Go + REST API</p>
+      </div>
+      <div class="stack-badge">Go + REST API</div>
+    </div>
+
+    <section class="display" aria-live="polite">
+      <div class="expression" id="expression"></div>
+      <div class="result" id="result">0</div>
+    </section>
+
+    <div class="mode-row">
+      <span>Scientific mode</span>
+      <span id="modeLabel">angle: DEG</span>
+    </div>
+
+    <section class="keyboard" aria-label="Calculator keyboard">
+      <button class="sci" onclick="toggleAngle()" id="angleBtn">DEG</button>
+      <button class="sci" onclick="pressFunc('sin')">sin</button>
+      <button class="sci" onclick="pressFunc('cos')">cos</button>
+      <button class="sci" onclick="pressFunc('tan')">tan</button>
+      <button onclick="clearAll()">C</button>
+      <button class="sci" onclick="pressFunc('log')">log</button>
+      <button class="sci" onclick="pressFunc('ln')">ln</button>
+      <button class="sci" onclick="pressFunc('sqrt')">sqrt</button>
+      <button class="sci" onclick="press('pi')">pi</button>
+      <button onclick="backspace()" aria-label="Backspace">DEL</button>
+      <button onclick="press('7')">7</button>
+      <button onclick="press('8')">8</button>
+      <button onclick="press('9')">9</button>
+      <button class="op" onclick="press('/')">/</button>
+      <button class="op" onclick="press('*')">*</button>
+      <button onclick="press('4')">4</button>
+      <button onclick="press('5')">5</button>
+      <button onclick="press('6')">6</button>
+      <button class="op" onclick="press('-')">-</button>
+      <button class="op" onclick="press('+')">+</button>
+      <button onclick="press('1')">1</button>
+      <button onclick="press('2')">2</button>
+      <button onclick="press('3')">3</button>
+      <button onclick="press('(')">(</button>
+      <button onclick="press(')')">)</button>
+      <button onclick="press('0')">0</button>
+      <button onclick="press('.')">.</button>
+      <button class="sci" onclick="press('e')">e</button>
+      <button class="op" onclick="press('**')">^</button>
+      <button class="equals" onclick="calculate()">=</button>
+    </section>
+
+  </main>
+
+  <script>
+    let expression = "";
+    let angleMode = "DEG";
+    let lastResult = "0";
+    let resultState = "";
+
+    function press(value) {
+      expression += value;
+      resultState = "";
+      render();
+    }
+
+    function pressFunc(name) {
+      expression += name + "(";
+      resultState = "";
+      render();
+    }
+
+    function toggleAngle() {
+      angleMode = angleMode === "DEG" ? "RAD" : "DEG";
+      document.getElementById("angleBtn").textContent = angleMode;
+      document.getElementById("modeLabel").textContent = `angle: ${angleMode}`;
+      render();
+    }
+
+    function clearAll() {
+      expression = "";
+      lastResult = "0";
+      resultState = "";
+      render();
+    }
+
+    function backspace() {
+      expression = expression.slice(0, -1);
+      resultState = "";
+      render();
+    }
+
+    function calculate() {
+      try {
+        if (!expression) return;
+        const answer = evaluate(expression);
+        expression = String(parseFloat(answer.toPrecision(12)));
+        lastResult = expression;
+        resultState = "evaluated";
+        render();
+      } catch (error) {
+        lastResult = "Error";
+        resultState = "error";
+        render();
+      }
+    }
+
+    function evaluate(input) {
+      const deg = angleMode === "DEG";
+      const scope = {
+        sin: (x) => Math.sin(deg ? x * Math.PI / 180 : x),
+        cos: (x) => Math.cos(deg ? x * Math.PI / 180 : x),
+        tan: (x) => Math.tan(deg ? x * Math.PI / 180 : x),
+        log: Math.log10,
+        ln: Math.log,
+        sqrt: Math.sqrt,
+        pi: Math.PI,
+        e: Math.E
+      };
+      const js = input
+        .replace(/\bpi\b/g, "scope.pi")
+        .replace(/\be\b/g, "scope.e")
+        .replace(/\bsin\(/g, "scope.sin(")
+        .replace(/\bcos\(/g, "scope.cos(")
+        .replace(/\btan\(/g, "scope.tan(")
+        .replace(/\blog\(/g, "scope.log(")
+        .replace(/\bln\(/g, "scope.ln(")
+        .replace(/\bsqrt\(/g, "scope.sqrt(");
+      if (/[^0-9+\-*/().,\sA-Za-z]/.test(js)) throw new Error("Invalid");
+      const value = Function("scope", `"use strict"; return (${js})`)(scope);
+      if (!Number.isFinite(value)) throw new Error("Invalid");
+      return value;
+    }
+
+    function render() {
+      document.getElementById("expression").textContent = expression || "";
+      const resultEl = document.getElementById("result");
+      resultEl.textContent = resultState ? lastResult : (expression || "0");
+      resultEl.className = `result ${resultState}`.trim();
+    }
+
+    window.addEventListener("keydown", (event) => {
+      if (/^[0-9().+\-*/]$/.test(event.key)) press(event.key);
+      if (event.key === "Enter" || event.key === "=") calculate();
+      if (event.key === "Backspace") backspace();
+      if (event.key === "Escape") clearAll();
+    });
+  </script>
+</body>
+</html>

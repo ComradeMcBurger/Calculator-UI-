@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Scientific Calculator - Stack 5: Python + Streamlit inspired UI.">
+  <title>Streamlit App - Scientific Calculator</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #0f0f0f;
+      --panel2: #111111;
+      --border: #00ff41;
+      --border-dim: rgba(0, 255, 65, 0.25);
+      --border-muted: rgba(0, 255, 65, 0.1);
+      --text: #00ff41;
+      --text-dim: rgba(0, 255, 65, 0.7);
+      --text-muted: rgba(0, 255, 65, 0.35);
+      --accent: #ff4f87;
+      --btn-bg: rgba(0, 255, 65, 0.06);
+      --btn-hover: rgba(0, 255, 65, 0.14);
+      --glow: 0 0 8px rgba(0, 255, 65, 0.35);
+      --glow-strong: 0 0 28px rgba(0, 255, 65, 0.18);
+      --font: "Courier New", Courier, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background:
+        radial-gradient(circle at 18% 14%, rgba(255, 79, 135, 0.08), transparent 28%),
+        linear-gradient(180deg, #0a0a0a 0%, #060606 100%);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .st-topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border-dim);
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    .app-name {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--text);
+      letter-spacing: 2px;
+    }
+
+    .run-btn {
+      border: 1px solid var(--border-dim);
+      padding: 3px 10px;
+      font-family: var(--font);
+      font-size: 9px;
+      color: var(--text-muted);
+      background: transparent;
+    }
+
+    .st-layout { display: flex; flex: 1; }
+
+    .st-sidebar {
+      width: 220px;
+      border-right: 1px solid var(--border-dim);
+      background: var(--panel);
+      padding: 20px 16px;
+      flex-shrink: 0;
+    }
+
+    .st-sidebar-title {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border-muted);
+      padding-bottom: 8px;
+    }
+
+    .st-sidebar-item {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      padding: 4px 0;
+      line-height: 1.6;
+    }
+
+    .active { color: var(--border); }
+
+    .st-main {
+      flex: 1;
+      padding: 32px;
+      max-width: 620px;
+      min-width: 0;
+    }
+
+    .st-tag {
+      border: 1px solid var(--border-dim);
+      padding: 1px 5px;
+      font-size: 8px;
+      color: var(--text-muted);
+    }
+
+    .st-component-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .st-title {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--border);
+      text-shadow: var(--glow);
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .st-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+
+    .display {
+      background: var(--panel2);
+      border: 1px solid var(--border-dim);
+      padding: 16px;
+      min-height: 102px;
+      margin-bottom: 14px;
+      text-align: right;
+      box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .display::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-top: 1px solid rgba(0, 255, 65, 0.35);
+      pointer-events: none;
+    }
+
+    .expression {
+      min-height: 18px;
+      color: var(--text-muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .result {
+      color: var(--border);
+      font-size: 36px;
+      font-weight: bold;
+      text-shadow: var(--glow);
+      overflow-wrap: anywhere;
+      transition: color 0.15s ease, text-shadow 0.15s ease;
+    }
+
+    .result.evaluated { color: #d6ffe0; text-shadow: var(--glow-strong); }
+    .result.error { color: var(--accent); text-shadow: 0 0 12px rgba(255, 79, 135, 0.5); }
+
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    button.calc-key {
+      min-height: 50px;
+      background: var(--btn-bg);
+      color: var(--border);
+      border: 1px solid var(--border-dim);
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    button.calc-key:hover {
+      background: var(--btn-hover);
+      border-color: var(--border);
+      box-shadow: var(--glow);
+    }
+
+    button.calc-key:focus-visible {
+      outline: 1px solid var(--border);
+      outline-offset: 2px;
+    }
+
+    .operator { color: var(--accent); border-color: rgba(255, 79, 135, 0.35); }
+    .equals {
+      background: rgba(255, 79, 135, 0.16);
+      color: var(--accent);
+      box-shadow: 0 0 16px rgba(255, 79, 135, 0.16);
+    }
+
+    .st-status {
+      border: 1px solid var(--border);
+      background: rgba(0, 255, 65, 0.12);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--border);
+      margin-top: 18px;
+      line-height: 1.5;
+    }
+
+    .st-error {
+      border-color: var(--accent);
+      background: rgba(255, 79, 135, 0.12);
+      color: var(--accent);
+    }
+
+    @media (max-width: 600px) {
+      .st-sidebar { display: none; }
+      .st-main { padding: 20px 16px; max-width: none; }
+      .st-topbar { padding: 8px 16px; }
+      .keyboard { grid-template-columns: repeat(4, 1fr); }
+      .st-title { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="st-topbar">
+    <span class="app-name">Python + Streamlit</span>
+    <span>Scientific Calculator</span>
+  </div>
+
+  <div class="st-layout">
+    <aside class="st-sidebar">
+      <div class="st-sidebar-title">Tech Stack</div>
+      <div class="st-sidebar-item">
+        Python + Streamlit<br>
+        HTML + CSS + JavaScript
+      </div>
+    </aside>
+
+    <main class="st-main">
+      <h1 class="st-title">Scientific Calculator</h1>
+      <p class="st-subtitle">Python + Streamlit</p>
+
+      <section class="display" aria-live="polite">
+        <div class="expression" id="expression"></div>
+        <div class="result" id="result">0</div>
+      </section>
+
+      <section class="keyboard" aria-label="Calculator keyboard">
+        <button class="calc-key operator" onclick="toggleAngle()" id="angleBtn">DEG</button>
+        <button class="calc-key operator" onclick="pressFunc('sin')">sin</button>
+        <button class="calc-key operator" onclick="pressFunc('cos')">cos</button>
+        <button class="calc-key operator" onclick="pressFunc('tan')">tan</button>
+        <button class="calc-key" onclick="clearAll()">C</button>
+        <button class="calc-key operator" onclick="pressFunc('log')">log</button>
+        <button class="calc-key operator" onclick="pressFunc('ln')">ln</button>
+        <button class="calc-key operator" onclick="pressFunc('sqrt')">sqrt</button>
+        <button class="calc-key operator" onclick="press('pi')">pi</button>
+        <button class="calc-key" onclick="backspace()">DEL</button>
+        <button class="calc-key" onclick="press('7')">7</button>
+        <button class="calc-key" onclick="press('8')">8</button>
+        <button class="calc-key" onclick="press('9')">9</button>
+        <button class="calc-key operator" onclick="press('/')">/</button>
+        <button class="calc-key operator" onclick="press('*')">*</button>
+        <button class="calc-key" onclick="press('4')">4</button>
+        <button class="calc-key" onclick="press('5')">5</button>
+        <button class="calc-key" onclick="press('6')">6</button>
+        <button class="calc-key operator" onclick="press('-')">-</button>
+        <button class="calc-key operator" onclick="press('+')">+</button>
+        <button class="calc-key" onclick="press('1')">1</button>
+        <button class="calc-key" onclick="press('2')">2</button>
+        <button class="calc-key" onclick="press('3')">3</button>
+        <button class="calc-key" onclick="press('(')">(</button>
+        <button class="calc-key" onclick="press(')')">)</button>
+        <button class="calc-key" onclick="press('0')">0</button>
+        <button class="calc-key" onclick="press('.')">.</button>
+        <button class="calc-key operator" onclick="press('e')">e</button>
+        <button class="calc-key operator" onclick="press('**')">^</button>
+        <button class="calc-key equals" onclick="calculate()">=</button>
+      </section>
+
+      <div class="st-status" id="status">Scientific mode</div>
+    </main>
+  </div>
+
+  <script>
+    let expression = "";
+    let angleMode = "DEG";
+    let lastResult = "0";
+    let resultState = "";
+
+    function press(value) {
+      expression += value;
+      resultState = "";
+      render();
+    }
+
+    function pressFunc(name) {
+      expression += name + "(";
+      resultState = "";
+      render();
+    }
+
+    function toggleAngle() {
+      angleMode = angleMode === "DEG" ? "RAD" : "DEG";
+      document.getElementById("angleBtn").textContent = angleMode;
+      render();
+    }
+
+    function clearAll() {
+      expression = "";
+      lastResult = "0";
+      resultState = "";
+      setStatus("Scientific mode");
+      render();
+    }
+
+    function backspace() {
+      expression = expression.slice(0, -1);
+      resultState = "";
+      render();
+    }
+
+    function calculate() {
+      try {
+        if (!expression) return;
+        const answer = evaluate(expression);
+        expression = String(parseFloat(answer.toPrecision(12)));
+        lastResult = expression;
+        resultState = "evaluated";
+        setStatus("Result");
+        render();
+      } catch (error) {
+        lastResult = "Error";
+        resultState = "error";
+        setStatus("Invalid expression", true);
+        render();
+      }
+    }
+
+    function evaluate(input) {
+      const deg = angleMode === "DEG";
+      const scope = {
+        sin: (x) => Math.sin(deg ? x * Math.PI / 180 : x),
+        cos: (x) => Math.cos(deg ? x * Math.PI / 180 : x),
+        tan: (x) => Math.tan(deg ? x * Math.PI / 180 : x),
+        log: Math.log10,
+        ln: Math.log,
+        sqrt: Math.sqrt,
+        pi: Math.PI,
+        e: Math.E
+      };
+      const js = input
+        .replace(/\bpi\b/g, "scope.pi")
+        .replace(/\be\b/g, "scope.e")
+        .replace(/\bsin\(/g, "scope.sin(")
+        .replace(/\bcos\(/g, "scope.cos(")
+        .replace(/\btan\(/g, "scope.tan(")
+        .replace(/\blog\(/g, "scope.log(")
+        .replace(/\bln\(/g, "scope.ln(")
+        .replace(/\bsqrt\(/g, "scope.sqrt(");
+      if (/[^0-9+\-*/().,\sA-Za-z]/.test(js)) throw new Error("Invalid");
+      const value = Function("scope", `"use strict"; return (${js})`)(scope);
+      if (!Number.isFinite(value)) throw new Error("Invalid");
+      return value;
+    }
+
+    function render() {
+      document.getElementById("expression").textContent = expression;
+      const resultEl = document.getElementById("result");
+      resultEl.textContent = resultState ? lastResult : (expression || "0");
+      resultEl.className = `result ${resultState}`.trim();
+    }
+
+    function setStatus(message, isError = false) {
+      const status = document.getElementById("status");
+      status.textContent = message;
+      status.className = isError ? "st-status st-error" : "st-status";
+    }
+
+    window.addEventListener("keydown", (event) => {
+      if (/^[0-9().+\-*/]$/.test(event.key)) press(event.key);
+      if (event.key === "Enter" || event.key === "=") calculate();
+      if (event.key === "Backspace") backspace();
+      if (event.key === "Escape") clearAll();
+    });
+  </script>
+</body>
+</html>

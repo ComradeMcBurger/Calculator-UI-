@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Programmer Calculator — Stack 2: Rust + WebAssembly. Live DEC/BIN/HEX/OCT display with bitwise operations.">
+  <title>WASM Core — Programmer Calculator</title>
+  <style>
+    /* Stack 2: Rust + WebAssembly — Terminal Hacker Theme */
+    :root {
+      --bg: #000000;
+      --panel: #050505;
+      --border: #00FF41;
+      --text: #00FF41;
+      --text-dim: rgba(0, 255, 65, 0.65);
+      --text-muted: rgba(0, 255, 65, 0.25);
+      --btn-bg: rgba(0, 255, 65, 0.04);
+      --btn-hover: rgba(0, 255, 65, 0.12);
+      --danger: #ff3333;
+      --glow: 0 0 10px rgba(0, 255, 65, 0.4);
+      --glow-strong: 0 0 30px rgba(0, 255, 65, 0.6), 0 0 60px rgba(0, 255, 65, 0.2);
+      --font: 'Courier New', Courier, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+    body {
+      background:
+        radial-gradient(circle at 50% 0%, rgba(0, 255, 65, 0.08), transparent 32%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* CRT scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0, 255, 65, 0.015) 3px,
+        rgba(0, 255, 65, 0.015) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .calculator {
+      width: 100%;
+      max-width: 460px;
+      border: 1px solid var(--border);
+      box-shadow: var(--glow-strong);
+      background: var(--panel);
+      position: relative;
+      isolation: isolate;
+    }
+
+    .calculator::before {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border: 1px solid rgba(0, 255, 65, 0.08);
+      pointer-events: none;
+    }
+
+    .calculator::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0, 255, 65, 0.08), transparent 18%);
+      opacity: 0.55;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* ── Title Bar ─────────────────────────────── */
+    .title-bar {
+      background: var(--border);
+      color: #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 12px;
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      box-shadow: 0 0 18px rgba(0, 255, 65, 0.35);
+    }
+    .title-bar .stack-tag { opacity: 0.65; }
+
+    /* ── Body ──────────────────────────────────── */
+    .calc-body {
+      background: var(--panel);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ── 4-Row Display ─────────────────────────── */
+    .display-panel {
+      border: 1px solid var(--border);
+      background: #000;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      box-shadow: inset 0 0 24px rgba(0, 255, 65, 0.05);
+    }
+
+    .display-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--text-muted);
+      transition: all 0.15s ease;
+      min-height: 38px;
+    }
+    .display-row:last-child { border-bottom: none; }
+
+    .display-row .lbl {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      min-width: 32px;
+      flex-shrink: 0;
+    }
+    .display-row .val {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: right;
+      word-break: break-all;
+      flex: 1;
+      margin-left: 10px;
+    }
+    .display-row.active .lbl { color: var(--border); }
+    .display-row.active .val {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--border);
+      text-shadow: var(--glow);
+    }
+
+    /* ── Op Status ─────────────────────────────── */
+    .op-bar {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-align: center;
+      min-height: 24px;
+      text-transform: uppercase;
+      border: 1px solid var(--text-muted);
+      padding: 5px 8px;
+      background: rgba(0, 255, 65, 0.025);
+    }
+
+    /* ── Keyboard ──────────────────────────────── */
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    button {
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--text-dim);
+      background: var(--btn-bg);
+      border: 1px solid var(--text-muted);
+      padding: 11px 4px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.1s ease;
+      outline: none;
+    }
+    button:hover {
+      background: var(--btn-hover);
+      border-color: var(--border);
+      color: var(--border);
+      box-shadow: var(--glow);
+    }
+    button:active { transform: scale(0.95); }
+    button:focus-visible {
+      outline: 1px solid var(--border);
+      outline-offset: 2px;
+      color: var(--border);
+    }
+
+    .btn-op { color: var(--border); border-color: rgba(0,255,65,0.3); }
+    .btn-op.active {
+      background: var(--border);
+      color: #000;
+      box-shadow: var(--glow);
+    }
+    .btn-danger { color: var(--danger); border-color: rgba(255,51,51,0.3); }
+    .btn-danger:hover { border-color: var(--danger); box-shadow: 0 0 10px rgba(255,51,51,0.4); color: var(--danger); }
+    .btn-equals {
+      background: rgba(0,255,65,0.08);
+      border-color: var(--border);
+      color: var(--border);
+      box-shadow: var(--glow);
+      grid-row: span 2;
+      font-size: 20px;
+    }
+    .btn-equals:hover { background: var(--border); color: #000; box-shadow: var(--glow-strong); }
+
+    /* ── Footer ────────────────────────────────── */
+    .calc-footer {
+      border-top: 1px solid var(--text-muted);
+      padding: 7px 12px;
+      font-size: 9px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      letter-spacing: 1px;
+      gap: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 380px) {
+      button { font-size: 10px; padding: 9px 2px; }
+      .display-row.active .val { font-size: 22px; }
+      .calc-footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      button,
+      .display-row {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<main class="calculator" id="calc">
+  <div class="title-bar">
+    <span>Programmer Calculator</span>
+    <span class="stack-tag">Rust + WebAssembly</span>
+  </div>
+
+  <div class="calc-body">
+
+    <!-- Display: 4-base live representation (web-sys DOM) -->
+    <section class="display-panel" aria-live="polite" aria-label="Multi-base number display">
+      <div class="display-row active" id="dec-row">
+        <span class="lbl">DEC</span>
+        <span class="val" id="dec-val">0</span>
+      </div>
+      <div class="display-row" id="bin-row">
+        <span class="lbl">BIN</span>
+        <span class="val" id="bin-val">0000 0000</span>
+      </div>
+      <div class="display-row" id="hex-row">
+        <span class="lbl">HEX</span>
+        <span class="val" id="hex-val">0x00000000</span>
+      </div>
+      <div class="display-row" id="oct-row">
+        <span class="lbl">OCT</span>
+        <span class="val" id="oct-val">0o0</span>
+      </div>
+    </section>
+
+    <div class="op-bar" id="op-bar">Ready</div>
+
+    <!-- Keyboard: wasm-bindgen JS bridge entry points -->
+    <section class="keyboard" aria-label="Calculator keyboard">
+
+      <!-- Bitwise operations: AND, OR, XOR, NOT, Clear -->
+      <button class="btn-op" id="btn-and" onclick="pressKey('AND')">AND</button>
+      <button class="btn-op" id="btn-or"  onclick="pressKey('OR')">OR</button>
+      <button class="btn-op" id="btn-xor" onclick="pressKey('XOR')">XOR</button>
+      <button class="btn-op" id="btn-not" onclick="pressKey('NOT')">NOT</button>
+      <button class="btn-danger" onclick="pressKey('C')">C</button>
+
+      <!-- Shift + arithmetic -->
+      <button class="btn-op" id="btn-lsh" onclick="pressKey('LSH')">&lt;&lt;</button>
+      <button class="btn-op" id="btn-rsh" onclick="pressKey('RSH')">&gt;&gt;</button>
+      <button class="btn-op" id="btn-add" onclick="pressKey('+')">+</button>
+      <button class="btn-op" id="btn-sub" onclick="pressKey('-')">−</button>
+      <button class="btn-danger" onclick="pressKey('BKS')" aria-label="Backspace">⌫</button>
+
+      <!-- Digits 7-9 + multiply + equals (spans 2 rows) -->
+      <button onclick="pressKey('7')">7</button>
+      <button onclick="pressKey('8')">8</button>
+      <button onclick="pressKey('9')">9</button>
+      <button class="btn-op" id="btn-mul" onclick="pressKey('*')">×</button>
+      <button class="btn-equals" onclick="pressKey('=')" aria-label="Equals">=</button>
+
+      <!-- Digits 4-6 + divide (equals spans into this row) -->
+      <button onclick="pressKey('4')">4</button>
+      <button onclick="pressKey('5')">5</button>
+      <button onclick="pressKey('6')">6</button>
+      <button class="btn-op" id="btn-div" onclick="pressKey('/')">÷</button>
+
+      <!-- Digits 1-3 + 0 -->
+      <button onclick="pressKey('1')">1</button>
+      <button onclick="pressKey('2')">2</button>
+      <button onclick="pressKey('3')">3</button>
+      <button style="grid-column: span 2;" onclick="pressKey('0')">0</button>
+
+    </section>
+  </div>
+
+</main>
+
+<script>
+  // ================================================================
+  // Stack 2: Rust + WebAssembly — Programmer Calculator
+  //
+  // In a real Rust+WASM project, this logic lives in:
+  //   src/lib.rs       → all math + state (Rust structs/methods)
+  //   Cargo.toml       → web-sys + wasm-bindgen dependencies
+  //   pkg/sci_calc.wasm → compiled binary (browser runs this)
+  //   pkg/sci_calc.js  → auto-generated JS glue (wasm-bindgen)
+  //   index.html       → thin shell that loads the .wasm module
+  //
+  // Here all logic runs as JS to demo in the browser without a
+  // Rust toolchain. Component roles are labeled in comments.
+  // ================================================================
+
+  // --- State (mirrors Rust struct: struct CalcState) ---
+  let display = '0';   // current decimal string being built
+  let stored = null;   // left operand for binary op
+  let op = null;       // pending operation
+  let fresh = true;    // start new number on next digit input
+
+  // --- Math core (mirrors Rust f64 / u32 methods in lib.rs) ---
+  function applyOp(a, b, operation) {
+    // u32 unsigned arithmetic (>>> 0 coerces to Uint32)
+    const au = a >>> 0;
+    const bu = b >>> 0;
+    switch (operation) {
+      case 'AND': return (au & bu) >>> 0;
+      case 'OR':  return (au | bu) >>> 0;
+      case 'XOR': return (au ^ bu) >>> 0;
+      case 'LSH': return (au << (bu % 32)) >>> 0;
+      case 'RSH': return au >>> (bu % 32);
+      case '+':   return (au + bu) >>> 0;
+      case '-':   return (au - bu) >>> 0;
+      case '*':   return Math.imul(au, bu) >>> 0;
+      case '/':   return bu !== 0 ? (Math.floor(au / bu) >>> 0) : 0;
+      default:    return au;
+    }
+  }
+
+  function getNum() {
+    return parseInt(display, 10) || 0;
+  }
+
+  function setNum(n) {
+    display = String((n >>> 0));
+  }
+
+  // --- Input handler (wasm-bindgen JS → Rust bridge) ---
+  function pressKey(key) {
+    if (key === 'C') {
+      display = '0'; stored = null; op = null; fresh = true;
+    } else if (key === 'BKS') {
+      if (fresh) return;
+      display = display.length > 1 ? display.slice(0, -1) : '0';
+    } else if ('0123456789'.includes(key)) {
+      if (fresh) { display = key === '0' ? '0' : key; fresh = false; }
+      else if (display === '0') { display = key; }
+      else { if (display.length < 10) display += key; }
+    } else if (key === 'NOT') {
+      setNum(~getNum()); fresh = true;
+    } else if (['AND','OR','XOR','LSH','RSH','+','-','*','/'].includes(key)) {
+      if (op && !fresh) setNum(applyOp(stored, getNum(), op));
+      stored = getNum();
+      op = key;
+      fresh = true;
+    } else if (key === '=') {
+      if (op !== null && stored !== null) {
+        setNum(applyOp(stored, getNum(), op));
+        stored = null; op = null; fresh = true;
+      }
+    }
+    updateDisplay();
+  }
+
+  // --- Display update (web-sys DOM manipulation from Rust) ---
+  function toBin(n) {
+    const u = n >>> 0;
+    if (u === 0) return '0000 0000';
+    const raw = u.toString(2);
+    const padLen = Math.ceil(raw.length / 8) * 8;
+    const padded = raw.padStart(padLen, '0');
+    return padded.match(/.{8}/g).join(' ');
+  }
+
+  function updateDisplay() {
+    const n = getNum() >>> 0;
+    document.getElementById('dec-val').textContent = n.toString(10);
+    document.getElementById('bin-val').textContent = toBin(n);
+    document.getElementById('hex-val').textContent = '0x' + n.toString(16).toUpperCase().padStart(8, '0');
+    document.getElementById('oct-val').textContent = '0o' + n.toString(8);
+
+    // Op status bar
+    const opBar = document.getElementById('op-bar');
+    if (op) {
+      opBar.textContent = `${op}`;
+    } else {
+      opBar.textContent = `Ready`;
+    }
+
+    // Highlight active op button
+    ['AND','OR','XOR','LSH','RSH','+','-','*','/'].forEach(o => {
+      const idMap = { AND:'and',OR:'or',XOR:'xor',LSH:'lsh',RSH:'rsh','+':'add','-':'sub','*':'mul','/':'div' };
+      const el = document.getElementById('btn-' + idMap[o]);
+      if (el) el.classList.toggle('active', op === o);
+    });
+  }
+
+  // --- Keyboard support ---
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k >= '0' && k <= '9') { pressKey(k); }
+    else if (k === '+') pressKey('+');
+    else if (k === '-') pressKey('-');
+    else if (k === '*') pressKey('*');
+    else if (k === '/') { e.preventDefault(); pressKey('/'); }
+    else if (k === 'Enter' || k === '=') { e.preventDefault(); pressKey('='); }
+    else if (k === 'Backspace') pressKey('BKS');
+    else if (k === 'Escape') pressKey('C');
+  });
+
+  // Boot
+  updateDisplay();
+</script>
+</body>
+</html>

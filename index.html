@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A premium, dark-space themed scientific calculator powered by Math.js.">
+  <title>Cosmic Scientific Calculator</title>
+  
+  <!-- Math.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
+
+  <style>
+    /* Design Tokens */
+    :root {
+      --bg-color: #0B0F1A;
+      --panel-bg: rgba(13, 20, 38, 0.7);
+      --border-color: rgba(0, 212, 200, 0.15);
+      --text-main: #FFFFFF;
+      --text-muted: rgba(255, 255, 255, 0.45);
+      --teal-glow: #00D4C8;
+      --teal-dim: rgba(0, 212, 200, 0.1);
+      --teal-hover: rgba(0, 212, 200, 0.25);
+      --key-digit-bg: rgba(255, 255, 255, 0.03);
+      --key-digit-hover: rgba(255, 255, 255, 0.1);
+      --key-clear-bg: rgba(235, 87, 87, 0.05);
+      --key-clear-color: #EB5757;
+      --key-clear-hover: rgba(235, 87, 87, 0.2);
+    }
+
+    /* Reset and Base Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient Space Background Effects */
+    body::before {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      background-image: 
+        radial-gradient(circle at 20% 30%, rgba(0, 212, 200, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(138, 43, 226, 0.08) 0%, transparent 50%);
+      z-index: -1;
+    }
+
+    /* Space Star Field Simulation */
+    .stars {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      background-image: 
+        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px),
+        radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 40px);
+      background-size: 550px 550px, 350px 350px, 250px 250px;
+      background-position: 0 0, 40px 60px, 130px 270px;
+      opacity: 0.25;
+      z-index: -1;
+      animation: floatStars 120s linear infinite;
+    }
+
+    @keyframes floatStars {
+      from { background-position: 0 0, 40px 60px, 130px 270px; }
+      to { background-position: 550px 550px, 390px 410px, 380px 820px; }
+    }
+
+    /* Main Calculator Container */
+    .calculator-card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(0, 212, 200, 0.05),
+        inset 0 0 15px rgba(255, 255, 255, 0.02);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      transition: box-shadow 0.3s ease, border-color 0.3s ease;
+      position: relative;
+    }
+
+    .calculator-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .calculator-card:focus-within,
+    .calculator-card:hover {
+      border-color: rgba(0, 212, 200, 0.3);
+      box-shadow: 
+        0 15px 40px rgba(0, 0, 0, 0.6),
+        0 0 30px rgba(0, 212, 200, 0.15),
+        inset 0 0 15px rgba(255, 255, 255, 0.02);
+    }
+
+    /* Brand Header */
+    .brand {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 8px;
+    }
+
+    .brand-glow {
+      color: var(--teal-glow);
+      text-shadow: 0 0 8px rgba(0, 212, 200, 0.5);
+      font-weight: bold;
+    }
+
+    /* Display Area */
+    .display-container {
+      background: rgba(5, 8, 18, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+      min-height: 110px;
+      word-wrap: break-word;
+      word-break: break-all;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .display-container::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0, 212, 200, 0.3), transparent);
+    }
+
+    .expression-display {
+      font-size: 15px;
+      color: var(--text-muted);
+      min-height: 20px;
+      text-align: right;
+      width: 100%;
+      letter-spacing: 1px;
+      transition: color 0.2s ease;
+    }
+
+    .result-display {
+      font-size: 32px;
+      font-weight: bold;
+      color: var(--text-main);
+      text-align: right;
+      width: 100%;
+      margin-top: 8px;
+      letter-spacing: 1px;
+      transition: color 0.2s ease;
+      white-space: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none; /* Firefox */
+    }
+
+    .result-display::-webkit-scrollbar {
+      display: none; /* Chrome/Safari */
+    }
+
+    .result-display.live-preview {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .result-display.evaluated {
+      color: var(--teal-glow);
+      text-shadow: 0 0 10px rgba(0, 212, 200, 0.4);
+    }
+
+    .result-display.error-state {
+      color: var(--key-clear-color);
+      text-shadow: 0 0 10px rgba(235, 87, 87, 0.4);
+    }
+
+    /* Keyboard Layout */
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    /* Buttons Styling */
+    button {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      font-weight: bold;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      height: 48px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--teal-glow);
+      outline-offset: 2px;
+    }
+
+    /* Scientific Keys */
+    .key-sci {
+      color: var(--teal-glow);
+      background-color: var(--teal-dim);
+      border-color: rgba(0, 212, 200, 0.1);
+    }
+
+    .key-sci:hover {
+      background-color: var(--teal-hover);
+      border-color: rgba(0, 212, 200, 0.4);
+      box-shadow: 0 0 12px rgba(0, 212, 200, 0.25);
+    }
+
+    /* Digit Keys */
+    .key-digit {
+      color: var(--text-main);
+      background-color: var(--key-digit-bg);
+      border-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .key-digit:hover {
+      background-color: var(--key-digit-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
+    }
+
+    /* Operator Keys */
+    .key-op {
+      color: var(--teal-glow);
+      background-color: rgba(0, 212, 200, 0.02);
+      border-color: rgba(0, 212, 200, 0.1);
+    }
+
+    .key-op:hover {
+      background-color: var(--teal-hover);
+      border-color: rgba(0, 212, 200, 0.4);
+      box-shadow: 0 0 12px rgba(0, 212, 200, 0.2);
+    }
+
+    /* Clear and Backspace Keys */
+    .key-danger {
+      color: var(--key-clear-color);
+      background-color: var(--key-clear-bg);
+      border-color: rgba(235, 87, 87, 0.15);
+    }
+
+    .key-danger:hover {
+      background-color: var(--key-clear-hover);
+      border-color: rgba(235, 87, 87, 0.4);
+      box-shadow: 0 0 12px rgba(235, 87, 87, 0.25);
+    }
+
+    /* Equals Key */
+    .key-equal {
+      color: var(--bg-color);
+      background-color: var(--teal-glow);
+      border: none;
+      grid-row: span 2;
+      height: auto;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0 15px rgba(0, 212, 200, 0.35);
+    }
+
+    .key-equal:hover {
+      background-color: #00ebd7;
+      box-shadow: 0 0 25px rgba(0, 212, 200, 0.6);
+    }
+
+    /* Screen Reader Only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    /* Keyboard Shortcuts Help Panel */
+    .shortcuts-help {
+      margin-top: 15px;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 400px) {
+      .calculator-card {
+        padding: 16px;
+        border-radius: 16px;
+      }
+      .display-container {
+        padding: 15px;
+        min-height: 90px;
+      }
+      .result-display {
+        font-size: 26px;
+      }
+      button {
+        height: 44px;
+        font-size: 15px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stars {
+        animation: none;
+      }
+
+      button,
+      .calculator-card {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="stars"></div>
+
+  <main class="calculator-card" id="calc">
+    <header class="brand">
+      <span>HTML + CSS + JavaScript</span>
+      <span class="brand-glow">Cosmic Calculator</span>
+    </header>
+
+    <!-- Displays -->
+    <div class="display-container" aria-live="polite">
+      <div id="expression" class="expression-display" aria-label="Current expression"></div>
+      <div id="result" class="result-display live-preview" aria-label="Result">0</div>
+    </div>
+
+    <!-- Interactive Grid Layout -->
+    <section class="keyboard" aria-label="Calculator Keyboard">
+      <!-- Scientific Row 1 -->
+      <button class="key-sci" onclick="handleInput('sin')">sin</button>
+      <button class="key-sci" onclick="handleInput('cos')">cos</button>
+      <button class="key-sci" onclick="handleInput('tan')">tan</button>
+      <button class="key-sci" onclick="handleInput('log')">log</button>
+      <button class="key-sci" onclick="handleInput('ln')">ln</button>
+
+      <!-- Scientific Row 2 -->
+      <button class="key-sci" onclick="handleInput('sqrt')">√</button>
+      <button class="key-sci" onclick="handleInput('sq')">x²</button>
+      <button class="key-sci" onclick="handleInput('pi')">π</button>
+      <button class="key-sci" onclick="handleInput('e')">e</button>
+      <button class="key-sci" onclick="handleInput('(')">(</button>
+
+      <!-- Row 3 -->
+      <button class="key-sci" onclick="handleInput(')')">)</button>
+      <button class="key-danger" onclick="handleInput('C')">C</button>
+      <button class="key-danger" onclick="handleInput('backspace')" aria-label="Backspace">⌫</button>
+      <button class="key-op" onclick="handleInput('/')">÷</button>
+      <button class="key-op" onclick="handleInput('*')">×</button>
+
+      <!-- Row 4 -->
+      <button class="key-digit" onclick="handleInput('7')">7</button>
+      <button class="key-digit" onclick="handleInput('8')">8</button>
+      <button class="key-digit" onclick="handleInput('9')">9</button>
+      <button class="key-op" onclick="handleInput('-')">−</button>
+      <button class="key-op" onclick="handleInput('+')">+</button>
+
+      <!-- Row 5 & 6 (Combined) -->
+      <button class="key-digit" onclick="handleInput('4')">4</button>
+      <button class="key-digit" onclick="handleInput('5')">5</button>
+      <button class="key-digit" onclick="handleInput('6')">6</button>
+      <button class="key-digit" onclick="handleInput('.')">.</button>
+      <button class="key-equal" onclick="handleInput('=')" aria-label="Calculate">=</button>
+
+      <button class="key-digit" onclick="handleInput('1')">1</button>
+      <button class="key-digit" onclick="handleInput('2')">2</button>
+      <button class="key-digit" onclick="handleInput('3')">3</button>
+      <button class="key-digit" onclick="handleInput('0')">0</button>
+    </section>
+
+  </main>
+
+  <script>
+    // State management
+    let expressionString = ''; // Internal string with Math.js compatible formatting
+    let displayString = '';    // User-friendly display representation
+    let isEvaluated = false;   // Whether the final result is currently shown
+
+    const expressionEl = document.getElementById('expression');
+    const resultEl = document.getElementById('result');
+
+    // UI Mapping for standard operators/symbols
+    const UI_MAPPINGS = {
+      '*': '×',
+      '/': '÷',
+      '-': '−',
+      'pi': 'π',
+      'e': 'e',
+      'sqrt': '√'
+    };
+
+    // Initialize/Update the display
+    function updateDisplay(liveValue = null, error = false) {
+      expressionEl.textContent = displayString;
+
+      if (error) {
+        resultEl.textContent = 'Error';
+        resultEl.className = 'result-display error-state';
+      } else if (isEvaluated) {
+        resultEl.textContent = liveValue !== null ? formatResult(liveValue) : '0';
+        resultEl.className = 'result-display evaluated';
+      } else {
+        resultEl.textContent = liveValue !== null ? formatResult(liveValue) : '0';
+        resultEl.className = 'result-display live-preview';
+      }
+    }
+
+    // Format output result to avoid floating point issues or super long values
+    function formatResult(value) {
+      if (typeof value === 'number') {
+        // If it's an integer, return it as is. Otherwise round/format.
+        if (Number.isInteger(value)) {
+          return value.toString();
+        }
+        // Round to max 10 decimal places to prevent float issues (like 0.1+0.2)
+        const rounded = parseFloat(value.toFixed(10));
+        return rounded.toString();
+      }
+      return String(value);
+    }
+
+    // Live Parser & Evaluator (No eval!)
+    function performLiveEvaluation() {
+      if (!expressionString.trim()) {
+        updateDisplay('0');
+        return;
+      }
+
+      try {
+        const cleanedExpr = preprocessExpression(expressionString);
+        // Parse expression without executing arbitrary code
+        const result = math.evaluate(cleanedExpr);
+        
+        if (result === undefined || typeof result === 'function') {
+          updateDisplay('');
+        } else if (typeof result === 'object' && result.isUnit) {
+          updateDisplay(result.toString());
+        } else {
+          updateDisplay(result);
+        }
+      } catch (err) {
+        // Live evaluation error is silent (we don't show "Error" until they press equals or unless requested)
+        // We just keep the last display
+      }
+    }
+
+    // Full final evaluation
+    function evaluateExpression() {
+      if (!expressionString.trim()) return;
+
+      try {
+        const cleanedExpr = preprocessExpression(expressionString);
+        const result = math.evaluate(cleanedExpr);
+
+        if (result === undefined || typeof result === 'function' || isNaN(result)) {
+          throw new Error('Invalid output');
+        }
+
+        let finalVal = typeof result === 'object' && result.isUnit ? result.toString() : result;
+        isEvaluated = true;
+        updateDisplay(finalVal);
+        
+        // After evaluation, we set the expressionString to the result so they can chain calculations
+        expressionString = formatResult(finalVal);
+        displayString = expressionString;
+      } catch (err) {
+        updateDisplay(null, true);
+        isEvaluated = true;
+      }
+    }
+
+    // Preprocess expression string for Math.js compatibility
+    function preprocessExpression(expr) {
+      let temp = expr;
+      
+      // Math.js requires explicit base-10 log to be log10() or log(x, 10). 
+      // Replace log( with log10(
+      temp = temp.replace(/log\(/g, 'log10(');
+      
+      // Math.js uses log() for natural log.
+      // Replace ln( with log(
+      temp = temp.replace(/ln\(/g, 'log(');
+
+      // Handle brackets completeness if needed (optional but good practice)
+      // Count open and close brackets and auto-append missing closing brackets
+      let openBrackets = (temp.match(/\(/g) || []).length;
+      let closeBrackets = (temp.match(/\)/g) || []).length;
+      while (openBrackets > closeBrackets) {
+        temp += ')';
+        closeBrackets++;
+      }
+
+      return temp;
+    }
+
+    // Handle button & keyboard input events
+    function handleInput(key) {
+      if (isEvaluated && key !== '=' && key !== 'backspace') {
+        // If we just evaluated and the user typed a new value/operator, reset if it's a new number/function
+        if (/^[0-9.eπ]/.test(key) || ['sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'sq', '('].includes(key)) {
+          expressionString = '';
+          displayString = '';
+        }
+        isEvaluated = false;
+      }
+
+      switch (key) {
+        case 'C':
+          expressionString = '';
+          displayString = '';
+          isEvaluated = false;
+          updateDisplay('0');
+          break;
+
+        case 'backspace':
+          if (isEvaluated) {
+            expressionString = '';
+            displayString = '';
+            isEvaluated = false;
+            updateDisplay('0');
+          } else {
+            // Remove last token or character. If it's a function name like 'sin(', remove the whole thing
+            const matchFunc = expressionString.match(/(sin\(|cos\(|tan\(|log\(|ln\(|sqrt\()$/);
+            if (matchFunc) {
+              const len = matchFunc[0].length;
+              expressionString = expressionString.slice(0, -len);
+              
+              // Also update user visible display string accordingly
+              const displayFunc = displayString.match(/(sin\(|cos\(|tan\(|log\(|ln\(|√\()$/);
+              if (displayFunc) {
+                displayString = displayString.slice(0, -displayFunc[0].length);
+              }
+            } else {
+              // Just remove last character
+              expressionString = expressionString.slice(0, -1);
+              displayString = displayString.slice(0, -1);
+            }
+            performLiveEvaluation();
+          }
+          break;
+
+        case '=':
+          evaluateExpression();
+          break;
+
+        // Scientific functions
+        case 'sin':
+        case 'cos':
+        case 'tan':
+        case 'log':
+        case 'ln':
+          expressionString += `${key}(`;
+          displayString += `${key}(`;
+          updateDisplay(null);
+          break;
+
+        case 'sqrt':
+          expressionString += 'sqrt(';
+          displayString += '√(';
+          updateDisplay(null);
+          break;
+
+        case 'sq':
+          expressionString += '^2';
+          displayString += '²';
+          updateDisplay(null);
+          performLiveEvaluation();
+          break;
+
+        case 'pi':
+          expressionString += 'pi';
+          displayString += 'π';
+          updateDisplay(null);
+          performLiveEvaluation();
+          break;
+
+        case 'e':
+          expressionString += 'e';
+          displayString += 'e';
+          updateDisplay(null);
+          performLiveEvaluation();
+          break;
+
+        // Numbers, operators, decimals, brackets
+        default:
+          expressionString += key;
+          displayString += UI_MAPPINGS[key] || key;
+          updateDisplay(null);
+          performLiveEvaluation();
+          break;
+      }
+    }
+
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      const key = e.key;
+
+      if (key >= '0' && key <= '9') {
+        handleInput(key);
+      } else if (key === '.') {
+        handleInput('.');
+      } else if (key === '+') {
+        handleInput('+');
+      } else if (key === '-') {
+        handleInput('-');
+      } else if (key === '*') {
+        handleInput('*');
+      } else if (key === '/') {
+        handleInput('/');
+      } else if (key === '(' || key === ')') {
+        handleInput(key);
+      } else if (key === 'Enter' || key === '=') {
+        e.preventDefault();
+        handleInput('=');
+      } else if (key === 'Backspace') {
+        handleInput('backspace');
+      } else if (key === 'Escape') {
+        handleInput('C');
+      }
+    });
+  </script>
+</body>
+</html>

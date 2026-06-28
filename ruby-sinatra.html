@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Scientific Calculator - Stack 4: Ruby + Sinatra + Slim inspired UI.">
+  <title>Scientific Calculator - Ruby + Sinatra</title>
+  <style>
+    :root {
+      --bg: #c8c8c8;
+      --window-bg: #ffffff;
+      --border: #000000;
+      --btn-bg: #d0d0d0;
+      --text: #000000;
+      --text-muted: #555555;
+      --display-bg: #ffffff;
+      --screen: #f7f7f7;
+      --font: "Courier New", Courier, monospace;
+      --title-h: 22px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      background-image: repeating-linear-gradient(
+        45deg,
+        transparent 0px,
+        transparent 2px,
+        rgba(0,0,0,0.04) 2px,
+        rgba(0,0,0,0.04) 4px
+      );
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px 60px;
+    }
+
+    .window {
+      width: 100%;
+      max-width: 500px;
+      border: 2px solid var(--border);
+      box-shadow: 4px 4px 0 #000, 6px 6px 0 #888;
+      background: var(--window-bg);
+      outline: 1px solid #fff;
+      outline-offset: -6px;
+    }
+
+    .title-bar {
+      background: var(--border);
+      color: #fff;
+      height: var(--title-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      position: relative;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .close-boxes {
+      position: absolute;
+      left: 6px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .close-box {
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid #fff;
+    }
+
+    .stack-tag {
+      position: absolute;
+      right: 8px;
+      font-size: 8px;
+      opacity: 0.75;
+      letter-spacing: 0;
+    }
+
+    .window-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .slim-section { border: 2px solid var(--border); }
+
+    .slim-label {
+      background: var(--border);
+      color: #fff;
+      font-size: 9px;
+      letter-spacing: 2px;
+      padding: 3px 8px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    .display {
+      padding: 12px;
+      background:
+        linear-gradient(180deg, #fff 0%, var(--screen) 100%);
+      text-align: right;
+      min-height: 96px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border: 2px inset #aaa;
+      margin: 12px;
+    }
+
+    .expression {
+      color: var(--text-muted);
+      min-height: 18px;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .result {
+      color: var(--text);
+      font-size: 34px;
+      font-weight: bold;
+      overflow-wrap: anywhere;
+      transition: color 0.1s ease;
+    }
+
+    .result.evaluated { color: #000; text-decoration: underline; text-underline-offset: 4px; }
+    .result.error { color: #fff; background: #000; padding: 0 4px; }
+
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    button {
+      min-height: 46px;
+      background: var(--btn-bg);
+      color: var(--text);
+      border: 2px outset #aaa;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 #888;
+      transition: all 0.05s;
+    }
+
+    button:hover { background: #bfbfbf; }
+    button:focus-visible {
+      outline: 2px dotted #000;
+      outline-offset: 2px;
+    }
+    button:active {
+      border: 2px inset #888;
+      box-shadow: none;
+      transform: translate(1px, 1px);
+    }
+
+    .operator { background: #e8e8e8; }
+    .equals { background: #000; color: #fff; border-color: #000; }
+
+    .error-box {
+      border: 2px solid #000;
+      background: #fff;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: bold;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-line {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      padding: 10px 12px;
+    }
+
+    .status-strip {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 10px;
+      color: var(--text-muted);
+      padding: 0 2px;
+    }
+
+    @media (max-width: 420px) {
+      .title-bar { justify-content: flex-start; padding-left: 30px; }
+      .stack-tag { display: none; }
+      .keyboard { grid-template-columns: repeat(4, 1fr); }
+      .result { font-size: 28px; }
+      button { min-height: 44px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="window">
+    <div class="title-bar">
+      <div class="close-boxes">
+        <div class="close-box"></div>
+        <div class="close-box"></div>
+      </div>
+      <span>Scientific Calculator - Ruby + Sinatra</span>
+      <span class="stack-tag">Ruby + Sinatra</span>
+    </div>
+
+    <div class="window-body">
+      <section class="slim-section">
+        <div class="slim-label">Ruby + Sinatra</div>
+        <div class="display" aria-live="polite">
+          <div class="expression" id="expression"></div>
+          <div class="result" id="result">0</div>
+        </div>
+      </section>
+
+      <div class="status-strip">
+        <span>Scientific mode</span>
+        <span id="modeLabel">angle: DEG</span>
+      </div>
+
+      <div class="error-box" id="errorBox">
+        <span>!</span>
+        <span id="errorMsg">Invalid expression.</span>
+      </div>
+
+      <section class="keyboard" aria-label="Calculator keyboard">
+        <button class="operator" onclick="toggleAngle()" id="angleBtn">DEG</button>
+        <button class="operator" onclick="pressFunc('sin')">sin</button>
+        <button class="operator" onclick="pressFunc('cos')">cos</button>
+        <button class="operator" onclick="pressFunc('tan')">tan</button>
+        <button onclick="clearAll()">C</button>
+        <button class="operator" onclick="pressFunc('log')">log</button>
+        <button class="operator" onclick="pressFunc('ln')">ln</button>
+        <button class="operator" onclick="pressFunc('sqrt')">sqrt</button>
+        <button class="operator" onclick="press('pi')">pi</button>
+        <button onclick="backspace()">DEL</button>
+        <button onclick="press('7')">7</button>
+        <button onclick="press('8')">8</button>
+        <button onclick="press('9')">9</button>
+        <button class="operator" onclick="press('/')">/</button>
+        <button class="operator" onclick="press('*')">*</button>
+        <button onclick="press('4')">4</button>
+        <button onclick="press('5')">5</button>
+        <button onclick="press('6')">6</button>
+        <button class="operator" onclick="press('-')">-</button>
+        <button class="operator" onclick="press('+')">+</button>
+        <button onclick="press('1')">1</button>
+        <button onclick="press('2')">2</button>
+        <button onclick="press('3')">3</button>
+        <button onclick="press('(')">(</button>
+        <button onclick="press(')')">)</button>
+        <button onclick="press('0')">0</button>
+        <button onclick="press('.')">.</button>
+        <button class="operator" onclick="press('e')">e</button>
+        <button class="operator" onclick="press('**')">^</button>
+        <button class="equals" onclick="calculate()">=</button>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    let expression = "";
+    let angleMode = "DEG";
+    let lastResult = "0";
+    let resultState = "";
+
+    function press(value) {
+      expression += value;
+      resultState = "";
+      render();
+    }
+
+    function pressFunc(name) {
+      expression += name + "(";
+      resultState = "";
+      render();
+    }
+
+    function toggleAngle() {
+      angleMode = angleMode === "DEG" ? "RAD" : "DEG";
+      document.getElementById("angleBtn").textContent = angleMode;
+      document.getElementById("modeLabel").textContent = `angle: ${angleMode}`;
+      render();
+    }
+
+    function clearAll() {
+      expression = "";
+      lastResult = "0";
+      resultState = "";
+      render();
+    }
+
+    function backspace() {
+      expression = expression.slice(0, -1);
+      resultState = "";
+      render();
+    }
+
+    function calculate() {
+      try {
+        if (!expression) return;
+        const answer = evaluate(expression);
+        expression = String(parseFloat(answer.toPrecision(12)));
+        lastResult = expression;
+        resultState = "evaluated";
+        render();
+      } catch (error) {
+        lastResult = "Error";
+        resultState = "error";
+        render();
+        document.getElementById("errorMsg").textContent = "Invalid expression.";
+        document.getElementById("errorBox").style.display = "flex";
+      }
+    }
+
+    function evaluate(input) {
+      const deg = angleMode === "DEG";
+      const scope = {
+        sin: (x) => Math.sin(deg ? x * Math.PI / 180 : x),
+        cos: (x) => Math.cos(deg ? x * Math.PI / 180 : x),
+        tan: (x) => Math.tan(deg ? x * Math.PI / 180 : x),
+        log: Math.log10,
+        ln: Math.log,
+        sqrt: Math.sqrt,
+        pi: Math.PI,
+        e: Math.E
+      };
+      const js = input
+        .replace(/\bpi\b/g, "scope.pi")
+        .replace(/\be\b/g, "scope.e")
+        .replace(/\bsin\(/g, "scope.sin(")
+        .replace(/\bcos\(/g, "scope.cos(")
+        .replace(/\btan\(/g, "scope.tan(")
+        .replace(/\blog\(/g, "scope.log(")
+        .replace(/\bln\(/g, "scope.ln(")
+        .replace(/\bsqrt\(/g, "scope.sqrt(");
+      if (/[^0-9+\-*/().,\sA-Za-z]/.test(js)) throw new Error("Invalid");
+      const value = Function("scope", `"use strict"; return (${js})`)(scope);
+      if (!Number.isFinite(value)) throw new Error("Invalid");
+      return value;
+    }
+
+    function render() {
+      document.getElementById("expression").textContent = expression;
+      const resultEl = document.getElementById("result");
+      resultEl.textContent = resultState ? lastResult : (expression || "0");
+      resultEl.className = `result ${resultState}`.trim();
+      document.getElementById("errorBox").style.display = "none";
+    }
+
+    window.addEventListener("keydown", (event) => {
+      if (/^[0-9().+\-*/]$/.test(event.key)) press(event.key);
+      if (event.key === "Enter" || event.key === "=") calculate();
+      if (event.key === "Backspace") backspace();
+      if (event.key === "Escape") clearAll();
+    });
+  </script>
+</body>
+</html>
